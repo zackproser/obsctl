@@ -81,7 +81,10 @@ func main() {
 						Usage: "switch to a different scene",
 						Action: func(cCtx *cli.Context) error {
 							selectedScene := cCtx.String("scene-name")
-							fmt.Printf("Switching to scene %s", selectedScene)
+							fmt.Printf("Switching to scene %s\n", selectedScene)
+
+							ensureSceneExists(client, selectedScene)
+
 							params := &scenes.SetCurrentProgramSceneParams{
 								SceneName: selectedScene,
 							}
