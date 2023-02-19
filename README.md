@@ -5,9 +5,9 @@
 
 * List scenes
 * Change scenes 
+* Volume up / down for media input by name
 
 # TODO
-* Audio mixing
 * Mute / Unmute mic
 * Transitions
 
