@@ -65,7 +65,7 @@ func main() {
 				Subcommands: []*cli.Command{
 					{
 						Name:    "list",
-						Aliases: []string{"a"},
+						Aliases: []string{"l"},
 						Usage:   "list defined obs scenes",
 						Action: func(cCtx *cli.Context) error {
 							fmt.Println("Listing obs scenes..")
@@ -77,8 +77,9 @@ func main() {
 						},
 					},
 					{
-						Name:  "change",
-						Usage: "switch to a different scene",
+						Name:    "change",
+						Aliases: []string{"c"},
+						Usage:   "switch to a different scene",
 						Action: func(cCtx *cli.Context) error {
 							selectedScene := cCtx.String("scene-name")
 							fmt.Printf("Switching to scene %s\n", selectedScene)
