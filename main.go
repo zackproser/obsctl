@@ -10,60 +10,95 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-func getScenes() {
+const defaultObsAddress = "localhost:4455"
+const defaultObsPassword = "goodpassword"
 
+func createObsClient() *goobs.Client {
+	// Setup obs-websockets client
+	client, err := goobs.New(defaultObsAddress, goobs.WithPassword(defaultObsPassword))
+	if err != nil {
+		log.Fatal(err)
+	}
+	return client
+}
+
+func getScenes(client *goobs.Client) []string {
+	sceneNames := []string{}
+
+	resp, err := client.Scenes.GetSceneList()
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, v := range resp.Scenes {
+		sceneNames = append(sceneNames, v.SceneName)
+	}
+	return sceneNames
+}
+
+func sceneExists(client *goobs.Client, sceneName string) bool {
+	sceneNames := getScenes(client)
+	for _, v := range sceneNames {
+		if v == sceneName {
+			return true
+		}
+	}
+	return false
+}
+
+func ensureSceneExists(client *goobs.Client, sceneName string) {
+	if !sceneExists(client, sceneName) {
+		log.Fatalf("Scene %s does not exist", sceneName)
+	}
 }
 
 func main() {
 
-	// Setup obs-websockets client
-	client, err := goobs.New("localhost:4455", goobs.WithPassword("goodpassword"))
-	if err != nil {
-		log.Fatal(err)
-	}
+	client := createObsClient()
 	defer client.Disconnect()
 
 	app := &cli.App{
-		Name: "obs-cli",
+		Name:        "obs-cli",
+		Description: "A command line interface to drive Streamdeck actions related to Open Broadcaster Studio (OBS)",
 		Commands: []*cli.Command{
 			{
-				Name:    "list",
-				Aliases: []string{"a"},
-				Usage:   "list defined obs scenes",
-				Action: func(cCtx *cli.Context) error {
-					fmt.Println("Listing obs scenes..")
-					resp, err := client.Scenes.GetSceneList()
-					if err != nil {
-						fmt.Println("Error getting scene list: ", err)
-					}
-					for _, v := range resp.Scenes {
-						fmt.Printf("%2d %s\n", v.SceneIndex, v.SceneName)
-					}
+				Name: "scene",
+				Subcommands: []*cli.Command{
+					{
+						Name:    "list",
+						Aliases: []string{"a"},
+						Usage:   "list defined obs scenes",
+						Action: func(cCtx *cli.Context) error {
+							fmt.Println("Listing obs scenes..")
+							sceneNames := getScenes(client)
+							for _, sceneName := range sceneNames {
+								fmt.Println(sceneName)
+							}
+							return nil
+						},
+					},
+					{
+						Name:  "change",
+						Usage: "switch to a different scene",
+						Action: func(cCtx *cli.Context) error {
+							selectedScene := cCtx.String("scene-name")
+							fmt.Printf("Switching to scene %s", selectedScene)
+							params := &scenes.SetCurrentProgramSceneParams{
+								SceneName: selectedScene,
+							}
+							_, switchSceneErr := client.Scenes.SetCurrentProgramScene(params)
+							if switchSceneErr != nil {
+								fmt.Println("Error switching scene: ", switchSceneErr)
+							}
 
-					return nil
-				},
-			},
-			{
-				Name:  "change",
-				Usage: "switch to a different scene",
-				Action: func(cCtx *cli.Context) error {
-					selectedScene := cCtx.String("scene-name")
-					fmt.Printf("Switching to scene %s", selectedScene)
-					params := &scenes.SetCurrentProgramSceneParams{
-						SceneName: selectedScene,
-					}
-					_, switchSceneErr := client.Scenes.SetCurrentProgramScene(params)
-					if switchSceneErr != nil {
-						fmt.Println("Error switching scene: ", switchSceneErr)
-					}
-
-					return nil
-				},
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:     "scene-name",
-						Usage:    "name of the scene to switch to",
-						Required: true,
+							return nil
+						},
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:     "scene-name",
+								Usage:    "name of the scene to switch to",
+								Required: true,
+							},
+						},
 					},
 				},
 			},
