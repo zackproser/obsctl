@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/andreykaipov/goobs"
+	"github.com/andreykaipov/goobs/api/requests/inputs"
 	"github.com/andreykaipov/goobs/api/requests/scenes"
 	"github.com/urfave/cli/v2"
 )
@@ -20,6 +21,18 @@ func createObsClient() *goobs.Client {
 		log.Fatal(err)
 	}
 	return client
+}
+
+func getInputVolumeInDB(client *goobs.Client, inputName string) float64 {
+	// First, determine what volume the input is currently set to
+	getParams := &inputs.GetInputVolumeParams{
+		InputName: inputName,
+	}
+	getResp, err := client.Inputs.GetInputVolume(getParams)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return getResp.InputVolumeDb
 }
 
 func getScenes(client *goobs.Client) []string {
@@ -60,6 +73,100 @@ func main() {
 		Name:        "obs-cli",
 		Description: "A command line interface to drive Streamdeck actions related to Open Broadcaster Studio (OBS)",
 		Commands: []*cli.Command{
+			{
+				Name: "inputs",
+				Subcommands: []*cli.Command{
+					{
+						Name:    "list",
+						Aliases: []string{"l"},
+						Usage:   "list defined obs inputs",
+						Action: func(cCtx *cli.Context) error {
+							fmt.Println("Listing obs inputs..")
+							resp, err := client.Inputs.GetInputList()
+							if err != nil {
+								log.Fatal(err)
+							}
+							for _, v := range resp.Inputs {
+								fmt.Println(v)
+							}
+							return nil
+						},
+					},
+					{
+						Name: "lower",
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:     "input-name",
+								Aliases:  []string{"i"},
+								Usage:    "name of the input to lower",
+								Required: true,
+							},
+						},
+						Action: func(cCtx *cli.Context) error {
+
+							inputName := cCtx.String("input-name")
+							fmt.Printf("Lowering input %s\n", inputName)
+
+							currentVolDb := getInputVolumeInDB(client, inputName)
+
+							fmt.Printf("Current volume: %f\n", currentVolDb)
+
+							//If it's too low, do nothing
+							if currentVolDb <= -50 {
+								fmt.Println("Volume is already at minimum")
+								return nil
+							}
+
+							params := &inputs.SetInputVolumeParams{
+								InputName:     inputName,
+								InputVolumeDb: currentVolDb - 2,
+							}
+							_, err := client.Inputs.SetInputVolume(params)
+							if err != nil {
+								log.Fatal(err)
+							}
+							return nil
+						},
+					},
+					{
+						Name: "raise",
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:     "input-name",
+								Aliases:  []string{"i"},
+								Usage:    "name of the input to raise",
+								Required: true,
+							},
+						},
+						Action: func(cCtx *cli.Context) error {
+
+							inputName := cCtx.String("input-name")
+
+							fmt.Printf("Raising input %s\n", inputName)
+
+							currentVolDb := getInputVolumeInDB(client, inputName)
+
+							fmt.Printf("Current volume: %f\n", currentVolDb)
+
+							//If it's too high, do nothing
+							if currentVolDb >= 26 {
+								fmt.Println("Volume is already at max")
+								return nil
+							}
+
+							params := &inputs.SetInputVolumeParams{
+								InputName:     inputName,
+								InputVolumeDb: currentVolDb + 2,
+							}
+							_, setVolErr := client.Inputs.SetInputVolume(params)
+							if setVolErr != nil {
+								log.Fatal(setVolErr)
+							}
+							return nil
+						},
+					},
+				},
+			},
 			{
 				Name: "scene",
 				Subcommands: []*cli.Command{
